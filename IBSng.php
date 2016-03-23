@@ -114,9 +114,9 @@ class IBSng implements Driver
         return $this->isConnected;
     }
 
-    public function addUser()
+    public function addUser($username = null, $password = null, $group = null, $credit = null)
     {
-        // TODO: Implement addUser() method.
+        return $this->_addUser($group, $username, $password, $credit);
     }
 
     public function deleteUser()
@@ -406,33 +406,6 @@ class IBSng implements Driver
         }
     }
 
-    protected function request($url, $postData = array(), $header = FALSE)
-    {
-        if (empty($url)) {
-            throw new Exception('Url specified in curl request is empty ');
-        }
-        $this->handler = curl_init();
-        curl_setopt($this->handler, CURLOPT_CONNECTTIMEOUT, 0);
-        curl_setopt($this->handler, CURLOPT_TIMEOUT, $this->timeout);
-        curl_setopt($this->handler, CURLOPT_URL, $url);
-        curl_setopt($this->handler, CURLOPT_PORT, $this->port);
-        curl_setopt($this->handler, CURLOPT_POST, true);
-        curl_setopt($this->handler, CURLOPT_POSTFIELDS, $postData);
-        curl_setopt($this->handler, CURLOPT_HEADER, $header);
-        curl_setopt($this->handler, CURLOPT_RETURNTRANSFER, TRUE);
-//        curl_setopt($this->handler, CURLOPT_FOLLOWLOCATION, TRUE);
-        curl_setopt($this->handler, CURLOPT_USERAGENT, $this->agent);
-        curl_setopt($this->handler, CURLOPT_SSL_VERIFYHOST, false);
-        curl_setopt($this->handler, CURLOPT_SSL_VERIFYPEER, false);
-        curl_setopt($this->handler, CURLOPT_COOKIEFILE, $this->getCookie());
-        curl_setopt($this->handler, CURLOPT_COOKIEJAR, $this->getCookie());
-        $output = curl_exec($this->handler);
-        if (curl_errno($this->handler) != 0) {
-            throw new \Exception('Curl Error: ' . curl_error($this->handler));
-        }
-        curl_close($this->handler);
-        return $output;
-    }
 
     public function fetchAllUsers($startUID, $pagePerRequest)
     {
@@ -680,5 +653,81 @@ class IBSng implements Driver
             $i++;
         }
         return isset($users) ? $users : $j;
+    }
+
+    protected function _addUser($group_name, $username, $password, $credit)
+    {
+        /*
+         * change owner to whatever reseller you are using to login
+         */
+        $owner = 'system';
+        $IBSng_uid = $this->cr8_uid($group_name, $credit);
+        $url = $this->hostname . '/IBSng/admin/plugins/edit.php?edit_user=1&user_id=' . $IBSng_uid . '&submit_form=1&add=1&count=1&credit=1&owner_name=' . $owner . '&group_name=' . $group_name . '&x=35&y=1&edit__normal_username=normal_username';
+        $post_data['target'] = 'user';
+        $post_data['target_id'] = $IBSng_uid;
+        $post_data['update'] = 1;
+        $post_data['edit_tpl_cs'] = 'normal_username';
+        $post_data['attr_update_method_0'] = 'normalAttrs';
+        $post_data['has_normal_username'] = 't';
+        $post_data['current_normal_username'] = '';
+        $post_data['normal_username'] = $username; // username
+        $post_data['password'] = $password; //password
+        $post_data['normal_save_user_add'] = 't';
+        $post_data['credit'] = $credit;
+        $output = $this->request($url, $post_data, true);
+        if (strpos($output, 'exist')) {
+            return false;
+        }
+        if (strpos($output, 'IBSng/admin/user/user_info.php?user_id_multi')) {
+            return true;
+        }
+    }
+
+    protected function request($url, $postData = array(), $header = FALSE)
+    {
+        if (empty($url)) {
+            throw new Exception('Url specified in curl request is empty ');
+        }
+        $this->handler = curl_init();
+        curl_setopt($this->handler, CURLOPT_CONNECTTIMEOUT, 0);
+        curl_setopt($this->handler, CURLOPT_TIMEOUT, $this->timeout);
+        curl_setopt($this->handler, CURLOPT_URL, $url);
+        curl_setopt($this->handler, CURLOPT_PORT, $this->port);
+        curl_setopt($this->handler, CURLOPT_POST, true);
+        curl_setopt($this->handler, CURLOPT_POSTFIELDS, $postData);
+        curl_setopt($this->handler, CURLOPT_HEADER, $header);
+        curl_setopt($this->handler, CURLOPT_RETURNTRANSFER, TRUE);
+//        curl_setopt($this->handler, CURLOPT_FOLLOWLOCATION, TRUE);
+        curl_setopt($this->handler, CURLOPT_USERAGENT, $this->agent);
+        curl_setopt($this->handler, CURLOPT_SSL_VERIFYHOST, false);
+        curl_setopt($this->handler, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($this->handler, CURLOPT_COOKIEFILE, $this->getCookie());
+        curl_setopt($this->handler, CURLOPT_COOKIEJAR, $this->getCookie());
+        $output = curl_exec($this->handler);
+        if (curl_errno($this->handler) != 0) {
+            throw new \Exception('Curl Error: ' . curl_error($this->handler) . $url);
+        }
+        curl_close($this->handler);
+        return $output;
+    }
+
+    private function cr8_uid($group_name, $credit)
+    {
+        $url = $this->hostname . '/IBSng/admin/user/add_new_users.php';
+        $post_data['submit_form'] = 1;
+        $post_data['add'] = 1;
+        $post_data['count'] = 1;
+        $post_data['credit'] = $credit;
+        $post_data['owner_name'] = $this->username;
+        $post_data['group_name'] = $group_name;
+        $post_data['edit__normal_username'] = 1;
+        $output = $this->request($url, $post_data, true);
+        $pattern1 = 'user_id=';
+        $pos1 = strpos($output, $pattern1);
+        $sub1 = substr($output, $pos1 + strlen($pattern1), 100);
+        $pattern2 = '&su';
+        $pos2 = strpos($sub1, $pattern2);
+        $sub2 = substr($sub1, 0, $pos2);
+        return $sub2;
     }
 }

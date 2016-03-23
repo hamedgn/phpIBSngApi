@@ -9,7 +9,7 @@ interface Driver
 
     public function isConnected();
 
-    public function addUser();
+    public function addUser($group, $username, $password, $credit);
 
     public function deleteUser();
 

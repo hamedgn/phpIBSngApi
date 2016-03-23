@@ -19,14 +19,12 @@ class Request
         if (!method_exists($this->driver, $name)) {
             throw new Exception('driver does not support ' . $name . '()');
         }
-
-        return $this->driver->{$name}($args[0]);
+        return call_user_func_array(array($this->driver, $name), $args);
     }
 
     public function __call($name, $args)
     {
         return $this->loadDriver($name, $args);
-
     }
 
 }
