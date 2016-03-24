@@ -1,7 +1,8 @@
-<?php
+<?php namespace radiusApi\Modules;
 
+use radiusApi\DriverInterface;
 
-class IBSng implements Driver
+class IBSng implements DriverInterface
 {
     static public $_instance;
 
@@ -119,9 +120,9 @@ class IBSng implements Driver
         return $this->_addUser($group, $username, $password, $credit);
     }
 
-    public function deleteUser()
+    public function deleteUser($username)
     {
-        // TODO: Implement deleteUser() method.
+        return $this->_delUser($username);
     }
 
     public function listUser()
@@ -676,7 +677,8 @@ class IBSng implements Driver
         $post_data['credit'] = $credit;
         $output = $this->request($url, $post_data, true);
         if (strpos($output, 'exist')) {
-            return false;
+            throw new \Exception("username already exists");
+//            return false;
         }
         if (strpos($output, 'IBSng/admin/user/user_info.php?user_id_multi')) {
             return true;
@@ -686,7 +688,7 @@ class IBSng implements Driver
     protected function request($url, $postData = array(), $header = FALSE)
     {
         if (empty($url)) {
-            throw new Exception('Url specified in curl request is empty ');
+            throw new \Exception('Url specified in curl request is empty ');
         }
         $this->handler = curl_init();
         curl_setopt($this->handler, CURLOPT_CONNECTTIMEOUT, 0);
@@ -729,5 +731,44 @@ class IBSng implements Driver
         $pos2 = strpos($sub1, $pattern2);
         $sub2 = substr($sub1, 0, $pos2);
         return $sub2;
+    }
+
+    protected function _delUser($username, $logs = true, $audit = true)
+    {
+        $uid = $this->_userExists($username);
+        if ($uid == false)
+            throw new \Exception("user does not exists");
+//            return false;
+        $url = $this->hostname . '/IBSng/admin/user/del_user.php';
+        $post_data['user_id'] = $uid;
+        $post_data['delete'] = 1;
+        $post_data['delete_comment'] = '';
+        if ($logs)
+            $post_data['delete_connection_logs'] = 'on';
+        if ($audit)
+            $post_data['delete_audit_logs'] = 'on';
+        $output = $this->request($url, $post_data, true);
+        if (strpos($output, 'Successfully')) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    public function _userExists($username)
+    {
+        $url = $this->hostname . '/IBSng/admin/user/user_info.php?normal_username_multi=' . $username;
+        $output = $this->request($url, array(), true);
+        if (strpos($output, 'does not exists') == true) {
+            return false;
+        } else {
+            $pattern1 = 'change_credit.php?user_id=';
+            $pos1 = strpos($output, $pattern1);
+            $sub1 = substr($output, $pos1 + strlen($pattern1), 100);
+            $pattern2 = '"';
+            $pos2 = strpos($sub1, $pattern2);
+            $sub2 = substr($sub1, 0, $pos2);
+            return $sub2;
+        }
     }
 }

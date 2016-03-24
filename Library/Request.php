@@ -1,11 +1,11 @@
-<?php
+<?php namespace radiusApi;
 
 
 class Request
 {
     protected $driver = null;
 
-    public function __construct(Driver $driver)
+    public function __construct(DriverInterface $driver)
     {
         $this->driver = $driver;
 
